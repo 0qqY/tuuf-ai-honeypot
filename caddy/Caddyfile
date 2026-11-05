@@ -1,0 +1,155 @@
+{
+	email {$ACME_EMAIL}
+	# 80'de HTTPS'e yönlendirme yok: IP ile gelen tarayıcılar da yemi düz HTTP'den görsün
+	auto_https disable_redirects
+	servers {
+		trusted_proxies static private_ranges
+		protocols h1 h2 # h3 (alt-svc) nginx'te varsayılan değil, ele verir
+	}
+}
+
+(log) {
+	request_body {
+		max_size 1MB
+	}
+	log {
+		output file /data/access.log {
+			roll_size 100MiB
+			roll_keep 10
+		}
+		format json
+	}
+}
+
+# Yem arayüzü + OpenAI uyumlu API + MCP: önünde Ubuntu nginx'i varmış gibi
+(bait) {
+	import log
+	header {
+		Server "nginx/1.24.0 (Ubuntu)"
+		defer
+	}
+	reverse_proxy bait-api:8000 {
+		header_up X-Real-IP {remote_host}
+	}
+}
+
+# Alan adı (Let's Encrypt). Boş olmayan tls bloğu SNI eşleşmeli bir bağlantı politikası üretir;
+# yoksa aşağıdaki https:// catch-all'ın sertifika seçimi alan adına da uygulanır (snakeoil döner)
+{$BAIT_DOMAIN} {
+	tls {
+		protocols tls1.2 tls1.3
+	}
+	import bait
+}
+
+# Alan adına düz HTTP: nginx'teki gibi 301 ile HTTPS'e (otomatik yönlendirme kapalı; catch-all'a düşmesin)
+http://{$BAIT_DOMAIN} {
+	import log
+	header Server "nginx/1.24.0 (Ubuntu)"
+	redir https://{host}{uri} 301
+}
+
+# Catch-all'lar yalnız IP ile (ya da Host'suz / localhost) gelene yem sunar. Bu IP'yi hâlâ gösteren başka
+# alan adlarının (eski DNS kayıtları: üçüncü tarafların ziyaretçileri) istekleri bait-api'ye gitmez,
+# DB'ye yazılmaz; nginx'in 404'ünü alır. (Regex'te { } yok: Caddyfile yer tutucusuyla karışır.)
+(ip_only) {
+	@foreign {
+		header Host *
+		not header_regexp Host ^(localhost|[0-9.]+|\[[0-9a-fA-F:.]+\])(:[0-9]+)?$
+	}
+	header @foreign Content-Type "text/html"
+	respond @foreign `<html>
+<head><title>404 Not Found</title></head>
+<body>
+<center><h1>404 Not Found</h1></center>
+<hr><center>nginx/1.24.0 (Ubuntu)</center>
+</body>
+</html>
+` 404
+}
+
+# IP / bilinmeyen SNI ile gelen HTTPS: Ubuntu "snakeoil" tarzı self-signed sertifika
+# (scripts/gen-snakeoil.sh üretir; caddy/certs git'e girmez)
+https:// {
+	tls /etc/caddy/certs/snakeoil.crt /etc/caddy/certs/snakeoil.key
+	import ip_only
+	import bait
+}
+
+# Düz HTTP, IP ile gelen
+http:// {
+	import ip_only
+	import bait
+}
+
+# Sahte Ollama (düz HTTP; gerçek Ollama gibi Server header'ı yok)
+:11434 {
+	import log
+	header -Server
+	rewrite * /_ollama{uri}
+	reverse_proxy bait-api:8000 {
+		header_up X-Real-IP {remote_host}
+	}
+}
+
+# Açıkta unutulmuş diğer LLM sunucuları: port → /_<ürün> öneki (bait-api'de ayrı yüzey, llm_servers.py)
+(llm_port) {
+	import log
+	rewrite * /_{args[0]}{uri}
+	reverse_proxy bait-api:8000 {
+		header_up X-Real-IP {remote_host}
+	}
+}
+
+# Python/uvicorn tabanlılar: vLLM, LiteLLM, Open WebUI, Gradio
+(uvicorn) {
+	header {
+		Server uvicorn
+		defer
+	}
+}
+
+:8000 {
+	import llm_port vllm
+	import uvicorn
+}
+
+:4000 {
+	import llm_port litellm
+	import uvicorn
+}
+
+:3000 {
+	import llm_port openwebui
+	import uvicorn
+}
+
+:7860 {
+	import llm_port gradio
+	import uvicorn
+}
+
+# LM Studio (Node/Express)
+:1234 {
+	import llm_port lmstudio
+	header {
+		-Server
+		X-Powered-By Express
+		defer
+	}
+}
+
+# bitcoind JSON-RPC (libevent: Server başlığı yok)
+:8332 {
+	import llm_port btcrpc
+	header -Server
+}
+
+# llama.cpp server (cpp-httplib)
+:8080 {
+	import llm_port llamacpp
+	header {
+		Server llama.cpp
+		defer
+	}
+}

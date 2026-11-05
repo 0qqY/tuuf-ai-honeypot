@@ -1,0 +1,12 @@
+.env
+models/
+*.gguf
+caddy/certs/
+training/data/*
+!training/data/sample.jsonl
+training/out/
+training/unsloth_compiled_cache/
+__pycache__/
+*.pyc
+*.dump
+redteam/runs/

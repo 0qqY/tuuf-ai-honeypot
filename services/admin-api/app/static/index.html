@@ -1,0 +1,615 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tuuf Ai Honeypot</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#f3f0eb;--panel:#ffffff;--panel2:#fdfcfa;--line:#e6e0d8;--line2:#d8d0c5;--ink:#23211e;--mut:#8a8279;
+    --cy:#0b8fc6;--tl:#129c79;--am:#f0641e;--rd:#dc2f45;--gr:#1f9d55;--pk:#d6338a;
+    --hd:'Rajdhani',system-ui,sans-serif;--mono:'JetBrains Mono',ui-monospace,monospace}
+  *{box-sizing:border-box}
+  /* bal teması: çok soluk petek deseni, altıgen başlık işaretleri, üst barda bal damlaları */
+  body{margin:0;color:var(--ink);font:13px/1.45 var(--mono);min-height:100vh;
+    background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='42' height='72.75'%3E%3Cpath d='M21 0 42 12.1v24.2L21 48.5 0 36.4V12.1zM21 48.5v24.2' fill='none' stroke='%23f0641e' stroke-opacity='.07'/%3E%3C/svg%3E"),
+      radial-gradient(1200px 700px at 50% 35%,#fbf9f6 0%,var(--bg) 70%) fixed}
+  .honey{color:var(--am);text-shadow:0 0 14px #f0641e66}
+  .top{position:relative}
+  .top::after{content:'';position:absolute;left:70px;bottom:-11px;width:300px;height:12px;pointer-events:none;
+    background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='12'%3E%3Cpath d='M0 0h300v1H0zM24 1c0 4 2 7 0 9-3 2-5-1-4-4 1-2 3-3 4-5zM88 1c0 3 1 4 0 5-2 1-3 0-2-2zM150 1c1 6 3 9 1 10-3 1-4-2-3-5 0-2 1-3 2-5zM236 1c0 3 1 5 0 6-2 1-3-1-2-3z' fill='%23f0641e' fill-opacity='.75'/%3E%3C/svg%3E") no-repeat}
+  .p>h3::before{content:'';width:12px;height:14px;flex:none;background:var(--am);opacity:.85;
+    clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%)}
+  button,input,select{font:inherit;color:inherit}
+  /* ---------- üst bar ---------- */
+  .top{display:flex;align-items:center;gap:22px;padding:10px 18px;margin:10px;border:1px solid var(--line);
+    background:linear-gradient(180deg,#ffffff,#fbfaf7);border-radius:6px;font-family:var(--hd);letter-spacing:.06em}
+  .brand{display:flex;align-items:center;gap:12px;font-size:28px;font-weight:700;white-space:nowrap}
+  .brand small{color:var(--mut);font-weight:500;font-size:24px}
+  .stat{font-size:19px;font-weight:600;color:#5c554d;white-space:nowrap;padding-left:22px;border-left:1px solid var(--line2)}
+  .stat:first-of-type{margin-left:auto}
+  .stat b{font-weight:700}.ok{color:var(--gr)}.warn{color:var(--am)}.bad{color:var(--rd)}.cy{color:var(--cy)}
+  /* ---------- ızgara ---------- */
+  .grid{display:grid;gap:10px;padding:0 10px 10px;grid-template-columns:340px minmax(0,1fr) 360px;
+    grid-template-rows:680px auto 300px;grid-template-areas:"left map feed" "rank rank rank" "tags time ctrl"}
+  .p{background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line);border-radius:6px;
+    display:flex;flex-direction:column;min-width:0;min-height:0;position:relative}
+  .p>h3{margin:0;padding:9px 14px;font:600 18px var(--hd);letter-spacing:.05em;border-bottom:1px solid var(--line);
+    display:flex;align-items:center;gap:10px}
+  .p>h3 .sub{margin-left:auto;font:500 12px var(--mono);color:var(--mut);letter-spacing:0;white-space:nowrap}
+  .p>h3{white-space:nowrap}
+  .body{padding:12px 14px;flex:1;min-height:0;display:flex;flex-direction:column;gap:10px}
+  #left{grid-area:left}#map{grid-area:map}#feedp{grid-area:feed}#tagsp{grid-area:tags}#timep{grid-area:time}#ctrl{grid-area:ctrl}#rankp{grid-area:rank}
+  /* ---------- en büyük saldırılar (günlük / haftalık) ---------- */
+  .rankcols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px}
+  .rankcols h4{margin:0 0 6px;font:600 16px var(--hd);letter-spacing:.08em;color:#5c554d;display:flex;gap:8px}
+  .rankcols h4 small{margin-left:auto;font:400 11px var(--mono);color:var(--mut);letter-spacing:0}
+  .atk{display:grid;grid-template-columns:22px 58px minmax(0,1fr);gap:10px;align-items:center;padding:7px 10px;margin-bottom:6px;
+    background:#faf8f5;border:1px solid #e6e0d8;border-radius:3px;cursor:pointer}
+  .atk:hover{background:#fff4ec;border-color:var(--cy)}
+  .atk .rk{font:700 18px var(--hd);color:var(--mut);text-align:center}
+  .score{width:58px;height:44px;display:flex;flex-direction:column;align-items:center;justify-content:center;border:1px solid;
+    clip-path:polygon(12% 0,88% 0,100% 50%,88% 100%,12% 100%,0 50%);font:700 22px/1 var(--hd)}
+  .score small{font:500 8.5px var(--mono);letter-spacing:.06em;margin-top:2px}
+  .lv-critical{color:var(--rd);background:#dc2f4522;border-color:var(--rd)}.lv-high{color:var(--am);background:#f0641e20;border-color:var(--am)}
+  .lv-medium{color:var(--tl);background:#129c791a;border-color:var(--tl)}.lv-low{color:#8a8279;background:#8a827914;border-color:#8a8279}
+  .atk .t{font:600 15px var(--hd);letter-spacing:.03em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .atk .l{font-size:11.5px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .atk .l b{color:#3a3631;font-weight:600}
+  .bd{display:grid;grid-template-columns:110px 1fr 40px;gap:8px;align-items:center;font-size:12px;margin:3px 0}
+  .bd i{display:block;height:8px;background:linear-gradient(90deg,#7cc6e6,var(--cy))}
+  /* ---------- sol panel ---------- */
+  .kv{display:flex;justify-content:space-between;align-items:baseline;font:600 18px var(--hd);letter-spacing:.03em}
+  .kv b{font:600 26px var(--hd);color:var(--cy)}
+  svg text{font-family:var(--mono)}
+  .surfs{flex:1;overflow:auto;border-top:1px solid var(--line);margin:0 -14px;padding:0 14px}
+  .surf{display:grid;grid-template-columns:1fr auto 12px 12px;gap:8px;align-items:center;padding:4px 10px;margin:4px 0;
+    background:#faf8f5;border:1px solid #e6e0d8;border-radius:3px;cursor:pointer;font:600 15px var(--hd);letter-spacing:.06em}
+  .surf:hover,.surf.sel{border-color:var(--cy);background:#fff1e8}
+  .surf small{font:400 11px var(--mono);color:var(--mut)}
+  .dot{width:12px;height:13px;background:#ddd5ca;clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%)}
+  .dot.g{background:var(--gr);box-shadow:0 0 8px var(--gr)}.dot.a{background:var(--am);box-shadow:0 0 8px var(--am)}
+  .dot.r{background:var(--rd);box-shadow:0 0 8px var(--rd)}
+  /* ---------- harita ---------- */
+  #mesh{width:100%;height:100%;display:block}
+  .edge{fill:none;stroke-linecap:round}
+  .edge.live{stroke-dasharray:4 10;animation:flow 1.6s linear infinite}
+  @keyframes flow{to{stroke-dashoffset:-28}}
+  .nlabel{font:600 17px var(--hd);letter-spacing:.06em;fill:#2a2622}
+  .ncount{font:400 12px var(--mono);fill:var(--mut)}
+  .node{cursor:pointer}.node:hover .nlabel{fill:var(--cy)}
+  .tabs{position:absolute;top:50px;left:14px;display:flex;font:500 12px var(--mono)}
+  .tabs span{padding:4px 10px;border:1px solid var(--line2);color:var(--mut)}.tabs span.on{color:var(--cy);border-color:var(--cy);background:#e8f5fb}
+  .legend{position:absolute;right:14px;top:50px;font:12px var(--mono);color:var(--mut);display:flex;gap:14px}
+  .legend i{display:inline-block;width:18px;height:3px;vertical-align:middle;margin-right:6px}
+  /* ---------- akış ---------- */
+  .search{display:flex;gap:8px}
+  .search input{flex:1;background:#ffffff;border:1px solid var(--line2);border-radius:3px;padding:6px 10px}
+  #feed{flex:1;overflow:auto;display:flex;flex-direction:column;gap:8px;margin-right:-6px;padding-right:6px}
+  .card{border:1px solid #e6e0d8;border-left:3px solid var(--cy);background:#faf8f5;padding:8px 10px;cursor:pointer;
+    font-size:12.5px}
+  .card.fresh{animation:in .35s ease-out}
+  .card:hover{background:#fff4ec}
+  .card.s3{border-left-color:var(--rd)}.card.s2{border-left-color:var(--am)}.card.s1{border-left-color:var(--tl)}.card.s0{border-left-color:#cfc6ba}
+  .card .t{font:600 15px var(--hd);letter-spacing:.03em}
+  .card.s3 .t{color:var(--rd)}.card.s2 .t{color:var(--am)}.card.s1 .t{color:var(--tl)}.card.s0 .t{color:#8a8279}
+  .card .l{color:#3a3631;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .card .f{display:grid;grid-template-columns:1fr 1fr 1fr;margin-top:5px;font-size:11px;color:var(--mut)}
+  .card .f b{display:block;color:var(--tl);font-weight:600;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  @keyframes in{from{opacity:0;transform:translateY(-6px)}}
+  /* ---------- alt paneller ---------- */
+  .hbar{display:grid;grid-template-columns:190px 1fr 44px;gap:8px;align-items:center;font-size:12px;cursor:pointer}
+  .hbar:hover span{color:var(--cy)}
+  .hbar i{display:block;height:9px;background:linear-gradient(90deg,#7cc6e6,var(--cy));box-shadow:0 0 8px #0b8fc655}
+  .hbar.s3 i{background:linear-gradient(90deg,#f0a0aa,var(--rd))}.hbar.s2 i{background:linear-gradient(90deg,#f7b58f,var(--am))}
+  .hbar span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.hbar em{font-style:normal;text-align:right;color:var(--mut)}
+  .timewrap{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(0,1fr);gap:14px;flex:1;min-height:0}
+  .ips{overflow:auto;font-size:12px}
+  .ips div{display:grid;grid-template-columns:1fr 50px 60px;gap:6px;padding:3px 0;border-bottom:1px solid #eee8e0;cursor:pointer}
+  .ips div:hover{color:var(--cy)}.ips i{display:block;height:6px;margin-top:6px;background:var(--tl)}
+  .ctl{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .ctl input,.ctl select{width:100%;background:#ffffff;border:1px solid var(--line2);border-radius:3px;padding:6px 8px}
+  .btn{background:#fbf9f6;border:1px solid var(--line2);border-radius:3px;padding:7px 8px;cursor:pointer;
+    font:600 14px var(--hd);letter-spacing:.08em;color:#3a3631;text-transform:uppercase}
+  .btn:hover{border-color:var(--cy);color:var(--cy)}
+  .ctl input[type=checkbox]{width:auto;accent-color:var(--cy)}
+  .chk{display:flex;align-items:center;gap:6px;font-size:12px;color:#5c554d;cursor:pointer}
+  .full{grid-column:1/-1}
+  /* ---------- detay / giriş ---------- */
+  .modal{position:fixed;inset:0;background:#2a241f73;display:flex;align-items:center;justify-content:center;z-index:9;padding:16px}
+  .modal[hidden]{display:none}
+  .mbox{width:min(980px,100%);max-height:90vh;overflow:auto;background:var(--panel);border:1px solid var(--line2);border-radius:6px;padding:16px}
+  .mbox h3{font:600 20px var(--hd);margin:0 0 10px;display:flex;gap:10px;align-items:center}
+  .mbox h3 .btn{margin-left:auto}
+  pre.code{white-space:pre;word-break:normal;background:#1f1d1a;color:#f1ece4;border-color:#1f1d1a;tab-size:4}
+  pre{white-space:pre-wrap;word-break:break-all;background:#f7f4ef;border:1px solid #e6e0d8;padding:10px;max-height:46vh;overflow:auto;font-size:12px}
+  .tag{display:inline-block;font-size:11px;padding:0 6px;border:1px solid #d8d0c5;color:#0b6f9a;margin:1px}
+  .login{display:flex;flex-direction:column;gap:12px;width:min(380px,100%)}
+  .login input{background:#ffffff;border:1px solid var(--line2);padding:10px;border-radius:3px}
+  /* ---------- dar ekran (mobil) ---------- */
+  @media (max-width:1180px){
+    .top{flex-wrap:wrap;gap:8px 16px}.stat{border:0;padding:0;font-size:16px}.stat:first-of-type{margin-left:0}
+    .brand{font-size:22px;width:100%}.brand small{font-size:18px}
+    .grid{grid-template-columns:minmax(0,1fr);grid-template-rows:none;grid-template-areas:"rank" "map" "feed" "left" "time" "tags" "ctrl"}
+    .rankcols{grid-template-columns:minmax(0,1fr)}
+    #map{height:520px}#feedp{height:560px}#left{height:600px}#timep{height:auto}.timewrap{grid-template-columns:minmax(0,1fr)}
+    #ctrl,#tagsp{height:auto}.legend{display:none}
+  }
+  @media (max-width:600px){.top{margin:6px}.grid{padding:0 6px 6px}#map{height:400px}.nlabel{font-size:22px}.ncount{font-size:15px}}
+  /* açık tema ekleri */
+  .p{box-shadow:0 1px 3px #3a2a1a0f}.top{box-shadow:0 1px 3px #3a2a1a0f}
+  .honey{text-shadow:none}.dot.g,.dot.a,.dot.r{box-shadow:none}.hbar i{box-shadow:none}
+  .login{background:var(--panel);padding:22px;border:1px solid var(--line);border-radius:6px}
+  .beeimg{animation:hover 5s ease-in-out infinite}@keyframes hover{50%{transform:translateY(-6px)}}
+  /* seçili yüzey: haritada öne çıkar */
+  #mesh .node,#mesh .edge{transition:opacity .35s}
+  #mesh.focus .node:not(.hl){opacity:.25}#mesh.focus .edge:not(.hl){opacity:.12}
+  .node.hl{transform-box:fill-box;transform-origin:center;transform:scale(1.22);filter:drop-shadow(0 0 6px #f0641e99)}
+  .node.hl path,.node.hl ellipse{stroke:#f0641e;fill:#fff4ec}.node.hl .nlabel{fill:#f0641e}
+  .edge.hl{stroke:#f0641e;stroke-width:4px;opacity:1;stroke-dasharray:7 9;animation:flow 1s linear infinite}
+  .hlring{fill:none;stroke:#f0641e;stroke-width:2;transform-box:fill-box;transform-origin:center;animation:ring 1.6s ease-out infinite}
+  @keyframes ring{from{transform:scale(.6);opacity:.9}to{transform:scale(2.1);opacity:0}}
+  .card .t{display:flex;gap:8px;align-items:baseline}.card .t .n{margin-left:auto;font:600 12px var(--mono);color:var(--mut);white-space:nowrap}
+  .card .t .n b{color:var(--ink)}.gsum{font-size:12px;color:var(--mut);margin-bottom:10px;line-height:1.7}.gsum b{color:var(--ink)}
+  .glist{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+  /* ---------- ülke sekmesi ---------- */
+  .tabs span[data-view]{cursor:pointer}.tabs span[data-view]:hover{color:var(--cy)}
+  #map.geo #mesh,#map.geo .legend{visibility:hidden}
+  #geo{position:absolute;top:86px;left:14px;right:14px;bottom:12px;overflow:auto;display:flex;flex-direction:column;gap:6px}
+  #geo[hidden]{display:none}
+  .ctry{display:grid;grid-template-columns:26px 40px minmax(140px,1.1fr) minmax(0,2fr) 230px;gap:12px;align-items:center;
+    padding:6px 12px;border:1px solid var(--line);border-left:3px solid var(--tl);border-radius:4px;background:#faf8f5;cursor:pointer}
+  .ctry.s2{border-left-color:var(--am)}.ctry.s3{border-left-color:var(--rd)}
+  .ctry:hover{background:#fff4ec;border-color:var(--cy)}
+  .ctry .rk{font:700 18px var(--hd);color:var(--mut);text-align:center}
+  .flag{width:40px;height:30px;border-radius:3px;box-shadow:0 0 0 1px #0000001f;object-fit:cover;display:block;flex:none}
+  .flag0{width:40px;height:30px;border-radius:3px;background:#e6e0d8;display:grid;place-items:center;font:600 11px var(--mono);color:var(--mut)}
+  .ctry .nm{font:600 17px var(--hd);letter-spacing:.04em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ctry .nm small{font:400 11px var(--mono);color:var(--mut);margin-left:6px}
+  .ctry .bar{height:10px;background:#eee8e0;border-radius:2px;position:relative;overflow:hidden}
+  .ctry .bar i,.ctry .bar b{position:absolute;left:0;top:0;bottom:0}
+  .ctry .bar i{background:linear-gradient(90deg,#7cc6e6,var(--cy))}.ctry .bar b{background:linear-gradient(90deg,#f7b58f,var(--am))}
+  .ctry .nums{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;font-size:10.5px;color:var(--mut);text-align:right}
+  .ctry .nums b{display:block;font:600 14px var(--mono);color:var(--ink)}
+  .ctry.s2 .nums .h b{color:var(--am)}.ctry.s3 .nums .h b{color:var(--rd)}
+  .geofoot{font-size:11px;color:var(--mut);text-align:right;margin-top:auto;padding-top:4px}.geofoot a{color:var(--cy)}
+  #dtitle .flag{width:34px;height:25px}
+  /* ---------- akış / olay sekmeleri ---------- */
+  .ftabs{display:flex;font:500 12px var(--mono);margin-bottom:-2px}
+  .ftabs span{flex:1;text-align:center;padding:5px 8px;border:1px solid var(--line2);color:var(--mut);cursor:pointer}
+  .ftabs span+span{border-left:0}.ftabs span:hover{color:var(--cy)}
+  .ftabs span.on{color:var(--cy);border-color:var(--cy);background:#e8f5fb}
+  .ftabs b{display:inline-block;min-width:18px;margin-left:6px;padding:0 5px;border-radius:9px;background:var(--am);color:#fff;font-size:10.5px}
+  #streamv,#incv{display:flex;flex-direction:column;gap:10px;flex:1;min-height:0}#streamv[hidden],#incv[hidden]{display:none}
+  #incv{overflow:auto;margin-right:-6px;padding-right:6px}
+  #incv .atk{grid-template-columns:22px 52px minmax(0,1fr);gap:8px}#incv .atk .score{width:52px}
+  .ihead{display:grid;grid-template-columns:58px minmax(0,1fr);gap:10px;align-items:center}
+  .ihead .ip{font:700 20px var(--hd);letter-spacing:.04em;display:flex;align-items:center;gap:8px}
+  .ihead .ip .flag{width:28px;height:21px}.ihead .l{font-size:11.5px;color:var(--mut)}
+  .ifacts{display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;font-size:11px;color:var(--mut)}
+  .ifacts b{display:block;font:600 13px var(--mono);color:var(--ink)}
+  .isec{font:600 15px var(--hd);letter-spacing:.06em;color:#5c554d;border-bottom:1px solid var(--line);padding-bottom:3px;margin-top:4px}
+  #incv .hbar{grid-template-columns:minmax(0,1fr) 70px 34px}
+  .chain{display:flex;flex-direction:column;border-left:2px solid var(--line2);margin-left:6px}
+  .step{position:relative;padding:4px 0 6px 14px;cursor:pointer;font-size:11.5px}
+  .step::before{content:'';position:absolute;left:-6px;top:8px;width:10px;height:10px;border-radius:50%;background:#fff;border:2px solid var(--tl)}
+  .step.s2::before{border-color:var(--am)}.step.s3::before{border-color:var(--rd);background:#fde8eb}.step.s0::before{border-color:#cfc6ba}
+  .step:hover{background:#fff4ec}.step .h{display:flex;gap:6px;color:var(--mut);font-size:10.5px}
+  .step .h b{color:var(--ink);font-weight:600}.step .h em{margin-left:auto;font-style:normal;color:var(--am)}
+  .step .v{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#3a3631}
+  .step .k{font:600 13px var(--hd);letter-spacing:.03em}.step.s3 .k{color:var(--rd)}.step.s2 .k{color:var(--am)}.step.s1 .k{color:var(--tl)}.step.s0 .k{color:#8a8279}
+  .wallets code{display:block;font-size:11px;padding:3px 6px;background:#fff1e8;border:1px solid #f7c9ab;margin:2px 0;word-break:break-all}
+  .flash{animation:flash 1.4s ease-out}@keyframes flash{0%,30%{box-shadow:0 0 0 3px var(--am)}100%{box-shadow:0 0 0 0 #f0641e00}}
+  /* IP yanındaki küçük bayrak */
+  .ipf{display:inline-flex;align-items:center;gap:5px;vertical-align:middle;max-width:100%}
+  .ipf .flag{width:18px;height:13px;border-radius:2px;display:inline-block}
+  .ipf .flag0{font-size:9px;padding:0 3px;line-height:13px}
+  #dtitle .ipf .flag{width:26px;height:19px}
+</style>
+</head>
+<body>
+<div class="top">
+  <div class="brand"><svg width="36" height="36" viewBox="0 0 36 36" aria-hidden="true">
+    <path d="M18 2 32 10v16L18 34 4 26V10z" fill="#f0641e14" stroke="#f0641e" stroke-width="1.6"/>
+    <path d="M18 9c-4 6-6 9-6 12a6 6 0 0 0 12 0c0-3-2-6-6-12z" fill="#f0641e"/><circle cx="16" cy="21" r="1.6" fill="#ffffff"/></svg>
+    TUUF AI <span class="honey">HONEYPOT</span> <small>// LLM THREAT CONSOLE</small></div>
+  <div class="stat">BUILD <b class="cy">v3.2</b></div>
+  <div class="stat">SYS STATUS: <b id="sys" class="warn">CONNECTING</b></div>
+  <div class="stat">DECOY SURFACES: <b id="nodes" class="ok">10 ONLINE</b></div>
+  <div class="stat">THREAT LEVEL: <b id="threat">—</b></div>
+</div>
+
+<div class="grid">
+  <section class="p" id="left"><h3>Decoy Status &amp; Control</h3><div class="body">
+    <div class="kv"><span>Deception Engagement Rate</span><b id="eng">—</b></div>
+    <svg id="spark" viewBox="0 0 310 120" style="width:100%;height:104px"></svg>
+    <div class="kv"><span>Active Bait Surfaces</span><b id="active">—</b></div>
+    <svg id="mini" viewBox="0 0 310 64" style="width:100%;height:64px"></svg>
+    <div class="surfs" id="surfs"></div>
+  </div></section>
+
+  <section class="p" id="map"><h3>Decoy Network Mesh Map<span class="sub" id="mapsub"></span></h3>
+    <div class="tabs"><span class="on" data-view="mesh">LIVE TRAFFIC</span><span data-view="geo">TOP COUNTRIES</span><span>WINDOW <b id="win">24H</b></span></div>
+    <div class="legend"><span><i style="background:var(--cy)"></i>traffic</span><span><i style="background:var(--am)"></i>attack</span><span><i style="background:var(--pk)"></i>bait reuse</span></div>
+    <svg id="mesh" viewBox="0 0 1000 640" preserveAspectRatio="xMidYMid meet"></svg>
+    <div id="geo" hidden></div>
+  </section>
+
+  <section class="p" id="feedp"><h3><span id="ftitle">Live Intrusion Stream</span><span class="sub" id="fcount"></span></h3><div class="body">
+    <div class="ftabs"><span class="on" data-ftab="stream">LIVE STREAM</span><span data-ftab="inc">INCIDENTS<b id="inccount" hidden></b></span></div>
+    <div id="streamv"><div class="search"><input id="q" placeholder="Search IP, path, tag…" autocomplete="off"></div>
+    <div id="feed"></div></div>
+    <div id="incv" hidden></div>
+  </div></section>
+
+  <section class="p" id="rankp"><h3>Top Attacks Report<span class="sub" title="Score 0–100: impact of distinct attack tags + surfaces reached + medium+ event volume + active hours. Own IPs and noise excluded.">attack score 0–100 · one attack = one source IP</span></h3><div class="body">
+    <div class="rankcols"><div><h4>DAILY TOP 5 <small>last 24 h</small></h4><div id="rk_daily"></div></div>
+      <div><h4>WEEKLY TOP 5 <small>last 7 d</small></h4><div id="rk_weekly"></div></div></div>
+  </div></section>
+
+  <section class="p" id="tagsp"><h3>Attack Analytics<span class="sub">by tag</span></h3><div class="body" id="tags" style="overflow:auto;gap:7px"></div></section>
+
+  <section class="p" id="timep"><h3>Threat Capture Timeline<span class="sub"><span class="cy">■</span> events &nbsp;<span class="warn">■</span> medium+ severity</span></h3><div class="body">
+    <div class="timewrap"><svg id="tl" viewBox="0 0 640 200" preserveAspectRatio="none" style="width:100%;height:100%;min-height:180px"></svg>
+      <div style="display:flex;flex-direction:column;min-height:0"><div style="font:600 15px var(--hd);letter-spacing:.05em;margin-bottom:4px">TOP SOURCES</div><div class="ips" id="ips"></div></div></div>
+  </div></section>
+
+  <section class="p" id="ctrl"><h3>Trap Control Panel</h3><div class="body">
+    <div class="ctl">
+      <select id="hrs"><option value="24">Last 24 h</option><option value="168">Last 7 d</option><option value="336">Last 14 d</option></select>
+      <select id="f_sev"><option value="0">All severity</option><option value="1">≥ low</option><option value="2" selected>≥ medium</option><option value="3">high</option></select>
+      <select id="f_surface" class="full"><option value="">All surfaces</option></select>
+      <input id="f_tag" placeholder="tag (llm_usage)"><input id="f_ip" placeholder="IP">
+      <label class="chk" title="favicon/logo/root GETs without attack tags"><input type="checkbox" id="f_noise" checked> Hide noise</label>
+      <label class="chk" title="Mask IPs and request headers for screenshots"><input type="checkbox" id="share"> Share mode</label>
+      <button class="btn" id="apply">Apply</button><button class="btn" id="clear">Clear</button>
+      <button class="btn full" id="export">Export training set</button>
+    </div>
+  </div></section>
+</div>
+
+<div class="modal" id="detail" hidden><div class="mbox"><h3 id="dtitle">Event</h3><div id="dbody"></div></div></div>
+<div class="modal" id="loginm" hidden><form class="login" id="loginf"><h3 style="font:600 24px var(--hd);margin:0">TUUF AI <span class="honey">HONEYPOT</span></h3>
+  <input id="tok" type="password" placeholder="ADMIN_TOKEN" autocomplete="current-password"><button class="btn">Connect</button>
+  <small id="lerr" class="bad"></small></form></div>
+
+<script>
+const $=id=>document.getElementById(id);let T='',WS=null,STATS=null,timer=null;
+const SURF=[['web','WEB STOREFRONT',':80/443'],['openai_api','API RELAY',':443/v1'],['ollama','OLLAMA',':11434'],['mcp','MCP SERVER',':443/mcp'],
+  ['vllm','VLLM',':8000'],['lmstudio','LM STUDIO',':1234'],['litellm','LITELLM PROXY',':4000'],['llamacpp','LLAMA.CPP',':8080'],
+  ['openwebui','OPEN WEBUI',':3000'],['gradio','GRADIO WEBUI',':7860'],
+  ['wallet_ops','WALLET OPS',':443/internal'],['btc_rpc','BTC RPC',':8332']];
+const NAME=Object.fromEntries(SURF.map(s=>[s[0],s[1]]));
+// Etiket önem ve okunur adları (bait-api detect/rules.py SEVERITY ile uyumlu)
+const SEV={agent_bait_followed:3,github_bait_reuse:3,llm_key_reuse:3,mcp_tool_call:3,canary_reuse:3,cmd_injection:3,log4shell:3,
+  tool_abuse:3,model_tamper:3,malicious_pull:3,function_upload:3,owu_config_key_reuse:3,owu_config_read:2,mcp_enum:2,mcp_init:2,sqli:2,ssrf:2,path_traversal:2,data_exfil:2,
+  prompt_injection:2,system_prompt_extraction:2,jailbreak:2,credential_capture:2,encoding_evasion:2,xss:2,harmful_request:2,
+  default_credential:2,account_signup:2,key_generate:2,
+  wallet_ops_key_reuse:3,btc_rpc_cred_reuse:3,withdrawal_submit:3,whitelist_change:3,privkey_dump:3,wallet_unlock:2};
+const LABEL={llm_key_reuse:'Stolen API Key Reused',github_bait_reuse:'GitHub Leak Key Reused',canary_reuse:'Canary Token Triggered',
+  agent_bait_followed:'AI Agent Followed Bait',mcp_tool_call:'MCP Tool Invoked',function_upload:'Code-Exec Function Upload',owu_config_read:'WebUI Secrets Dumped',owu_config_key_reuse:'WebUI Stolen Key Reused',
+  malicious_pull:'Malicious Model Pull',model_tamper:'Model Tampering',tool_abuse:'Tool Abuse Attempt',cmd_injection:'Command Injection',
+  log4shell:'Log4Shell Probe',prompt_injection:'Prompt Injection Detected',jailbreak:'Jailbreak Attempt',
+  system_prompt_extraction:'System Prompt Extraction',data_exfil:'Data Exfiltration Attempt',credential_capture:'Credentials Captured',
+  account_signup:'Rogue Account Signup',default_credential:'Default Credential Login',key_generate:'API Key Generation',
+  harmful_request:'Harmful Request',sqli:'SQL Injection',xss:'XSS Payload',ssrf:'SSRF Probe',path_traversal:'Path Traversal',
+  mcp_enum:'MCP Tool Enumeration',mcp_init:'MCP Handshake',llm_usage:'LLM Inference Captured',model_enum:'Model Enumeration',
+  anthropic_api:'Anthropic API Call',gemini_api:'Gemini API Call',sensitive_path:'Sensitive File Probe',scanner_ua:'Scanner Sweep',
+  custom_system_prompt:'Custom System Prompt',tool_call:'Tool Call',client_tools:'Client Tools Supplied',ai_crawler:'AI Crawler',
+  gradio_api:'Gradio API Call',secret_bait_served:'Secret Bait Served',llm_probe_toolcall:'Validator: Tool-Call Test',
+  llm_probe_identity:'Validator: Identity Test',llm_probe_math:'Validator: Math Test',llm_probe_echo:'Validator: Echo Test',llm_probe_hello:'Validator: Hello Test',encoding_evasion:'Encoding Evasion',role_override:'Role Override',
+  wallet_ops_key_reuse:'Wallet-Ops Stolen Token Used',btc_rpc_cred_reuse:'BTC RPC Stolen Creds Used',withdrawal_submit:'Unauthorized Withdrawal',
+  whitelist_change:'Withdrawal Whitelist Tampered',privkey_dump:'Private Key Dump Attempt',wallet_unlock:'Wallet Unlock Attempt',
+  devops_leak_read:'DevOps Secrets Read',wallet_api_probe:'Wallet API Probe',btc_rpc_probe:'Bitcoin RPC Probe',btc_rpc_call:'Bitcoin RPC Call'};
+const REUSE=new Set(['llm_key_reuse','github_bait_reuse','canary_reuse','agent_bait_followed','wallet_ops_key_reuse','btc_rpc_cred_reuse']);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const share=()=>$('share').checked;
+const mip=ip=>!share()||!ip?String(ip??''):String(ip).replace(/^(\d+\.\d+)\.\d+\.\d+$/,'$1.x.x').replace(/^([0-9a-f]+:[0-9a-f]+):.*$/i,'$1::x');
+const ipH=(ip,cc)=>`<span class="ipf">${cc&&cc!=='??'?flagImg(cc):''}<span>${esc(mip(ip))}</span></span>`;
+const mtxt=s=>share()?String(s).replace(/\b(\d{1,3}\.\d{1,3})\.\d{1,3}\.\d{1,3}\b/g,'$1.x.x'):String(s);
+const fmt=n=>n>=1e4?(n/1e3).toFixed(1)+'k':String(n);
+const api=p=>fetch(p,{headers:{'X-Admin-Token':T}}).then(r=>{if(!r.ok)throw r.status;return r.json()});
+const lead=tags=>{let b=null,s=-1;for(const t of tags||[]){const v=SEV[t]??(t==='scanner_ua'?0:1);if(v>s){s=v;b=t}}return b};
+try{T=localStorage.getItem('hp_tok')||'';$('share').checked=localStorage.getItem('hp_share')==='1'}catch(e){}
+$('f_surface').insertAdjacentHTML('beforeend',SURF.map(s=>`<option value="${s[0]}">${s[1]}</option>`).join(''));
+
+/* ================= ağ haritası ================= */
+const NS='http://www.w3.org/2000/svg',C={x:500,y:322};let POS={},EDGES={};
+function rnd(seed){return()=>(seed=(seed*16807)%2147483647)/2147483647}
+function el(tag,attrs,parent){const e=document.createElementNS(NS,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);parent&&parent.appendChild(e);return e}
+function cyl(g,x,y,col){ // veritabanı silindiri simgesi
+  const w=30,h=34;el('path',{d:`M${x-w/2} ${y-h/2} v${h} a${w/2} 6 0 0 0 ${w} 0 v${-h}`,fill:'#ffffff',stroke:col,'stroke-width':2},g);
+  for(const k of [h/3,2*h/3])el('path',{d:`M${x-w/2} ${y-h/2+k} a${w/2} 6 0 0 0 ${w} 0`,fill:'none',stroke:col,'stroke-width':1.4,opacity:.8},g);
+  el('ellipse',{cx:x,cy:y-h/2,rx:w/2,ry:6,fill:'#f3efe9',stroke:col,'stroke-width':2},g)}
+function buildMesh(){
+  const svg=$('mesh');svg.innerHTML='';const defs=el('defs',{},svg);
+  const f=el('filter',{id:'glow',x:'-50%',y:'-50%',width:'200%',height:'200%'},defs);el('feGaussianBlur',{stdDeviation:3.2,result:'b'},f);
+  const m=el('feMerge',{},f);el('feMergeNode',{in:'b'},m);el('feMergeNode',{in:'SourceGraphic'},m);
+  const rg=el('radialGradient',{id:'core'},defs);el('stop',{offset:'0','stop-color':'#ffffff'},rg);el('stop',{offset:'.35','stop-color':'#f0641e'},rg);el('stop',{offset:'1','stop-color':'#f0641e00'},rg);
+  const hg=el('radialGradient',{id:'halo'},defs);el('stop',{offset:'0','stop-color':'#0b8fc633'},hg);el('stop',{offset:'1','stop-color':'#0b8fc600'},hg);
+  // arka plan ızgara noktaları ve veri kırıntıları
+  const bg=el('g',{opacity:.55},svg),r=rnd(7);
+  for(let i=0;i<46;i++){const x=40+r()*920,y=40+r()*560;if(Math.hypot(x-C.x,y-C.y)<170)continue;
+    const col=r()<.3?'#f0641e':'#0b8fc6',w=10+r()*26;el('rect',{x,y,width:w,height:3,fill:col,opacity:.25+r()*.35,transform:`rotate(${-35+r()*70} ${x} ${y})`},bg)}
+  el('circle',{cx:C.x,cy:C.y,r:230,fill:'url(#halo)'},svg);
+  // arının arkasında kenarlara doğru sönen bal peteği
+  const pat=el('pattern',{id:'comb',width:42,height:72.75,patternUnits:'userSpaceOnUse'},defs);
+  el('path',{d:'M21 0 42 12.1v24.2L21 48.5 0 36.4V12.1zM21 48.5v24.2',fill:'none',stroke:'#f0641e','stroke-width':1.1},pat);
+  const fg=el('radialGradient',{id:'combfade'},defs);el('stop',{offset:'.3','stop-color':'#fff','stop-opacity':.85},fg);el('stop',{offset:'1','stop-color':'#fff','stop-opacity':0},fg);
+  const mk=el('mask',{id:'combmask'},defs);el('ellipse',{cx:C.x,cy:C.y,rx:330,ry:250,fill:'url(#combfade)'},mk);
+  el('rect',{x:C.x-330,y:C.y-250,width:660,height:500,fill:'url(#comb)',mask:'url(#combmask)',opacity:.6},svg);
+  // birkaç dolu petek hücresi (bal)
+  for(const [hx,hy] of [[315,242.5],[735,388],[294,424.4],[714,206.1]])  // desen hücre merkezleriyle hizalı
+    el('path',{d:`M${hx} ${hy-24.25}l21 12.1v24.2l-21 12.1-21-12.1v-24.2z`,fill:'#f0641e','fill-opacity':.2,stroke:'#f58a4f','stroke-width':1.4},svg);
+  // düğüm konumları: elips üzerinde
+  const N=SURF.length;SURF.forEach((s,i)=>{const a=-Math.PI/2+i*2*Math.PI/N+.18;POS[s[0]]={x:C.x+395*Math.cos(a),y:C.y+232*Math.sin(a)}});
+  const eg=el('g',{},svg);EDGES={};
+  // komşu düğümler arası ince ağ
+  SURF.forEach((s,i)=>{for(const j of [1,3]){const t=SURF[(i+j)%N][0],a=POS[s[0]],b=POS[t];
+    el('path',{d:`M${a.x} ${a.y} Q${(a.x+b.x)/2+(C.x-(a.x+b.x)/2)*.35} ${(a.y+b.y)/2+(C.y-(a.y+b.y)/2)*.35} ${b.x} ${b.y}`,class:'edge',stroke:j===1?'#c9c1b6':'#ecc9a8','stroke-width':1,opacity:.55},eg)}});
+  // merkeze bağlantılar (kalınlık trafikle güncellenir)
+  SURF.forEach((s,i)=>{const a=POS[s[0]],bend=(i%2?1:-1)*60;
+    const mx=(a.x+C.x)/2-(a.y-C.y)/Math.hypot(a.x-C.x,a.y-C.y)*bend,my=(a.y+C.y)/2+(a.x-C.x)/Math.hypot(a.x-C.x,a.y-C.y)*bend;
+    EDGES[s[0]]=el('path',{d:`M${a.x} ${a.y} Q${mx} ${my} ${C.x} ${C.y}`,class:'edge',stroke:'#c9c1b6','stroke-width':1.2,opacity:.8},eg)});
+  beeCore(svg);
+  const ng=el('g',{},svg);
+  SURF.forEach(s=>{const p=POS[s[0]],g=el('g',{class:'node','data-f':'f_surface','data-v':s[0],id:'n_'+s[0]},ng);
+    cyl(g,p.x,p.y,'#0b8fc6');const below=p.y>C.y-20,ty=below?p.y+44:p.y-36;
+    el('text',{x:p.x,y:ty,'text-anchor':'middle',class:'nlabel'},g).textContent=s[1];
+    el('text',{x:p.x,y:ty+(below?17:-20),'text-anchor':'middle',class:'ncount',id:'c_'+s[0]},g).textContent=s[2]});
+  el('g',{id:'hlg'},svg);el('g',{id:'pulses'},svg)}
+// LLM çekirdeği: mekanik arı görseli (static/bee.webp, arka planı şeffaf; bal kısımları sarıya çekildi)
+function beeCore(svg){
+  const w=450,h=w*800/1100;
+  el('image',{href:'/bee.webp',x:C.x-w/2+10,y:C.y-h/2-22,width:w,height:h,class:'beeimg',preserveAspectRatio:'xMidYMid meet'},svg);
+  const t=el('text',{x:C.x+50,y:C.y+214,'text-anchor':'middle',class:'nlabel',style:'fill:#b4500f'},svg);t.textContent='LLM CORE · QWEN3';}
+function paintMesh(rows){
+  const by=Object.fromEntries(rows.map(r=>[r.surface,r])),mx=Math.max(1,...rows.map(r=>r.n));
+  for(const [k,,port] of SURF){const r=by[k]||{n:0,high:0,ips:0,last_hour:0},e=EDGES[k];
+    const atk=r.high>0,col=atk?'#f0641e':'#0b8fc6';
+    e.setAttribute('stroke',r.n?col:'#ddd5ca');e.setAttribute('stroke-width',(1+5*Math.log1p(r.n)/Math.log1p(mx)).toFixed(2));
+    e.classList.toggle('live',r.last_hour>0);
+    $('c_'+k).textContent=`${port} · ${fmt(r.n)} ev · ${r.ips} ip`;
+    const n=$('n_'+k);n.querySelectorAll('path,ellipse').forEach(p=>p.setAttribute('stroke',r.n?(r.high>r.n*.2?'#f0641e':'#0b8fc6'):'#cfc6ba'))}}
+const pulsing=[];
+function pulse(surface,sev,reuse){const e=EDGES[surface];if(!e||pulsing.length>40)return;
+  const c=el('circle',{r:reuse?6:sev>=2?5:3.5,fill:reuse?'#d6338a':sev>=2?'#f0641e':'#0b8fc6',filter:'url(#glow)'},$('pulses'));
+  pulsing.push({c,e,t0:performance.now(),L:e.getTotalLength()})}
+(function loop(now){for(let i=pulsing.length-1;i>=0;i--){const p=pulsing[i],k=(now-p.t0)/1400;
+  if(k>=1){p.c.remove();pulsing.splice(i,1);continue}const pt=p.e.getPointAtLength(p.L*k);p.c.setAttribute('cx',pt.x);p.c.setAttribute('cy',pt.y)}
+  requestAnimationFrame(loop)})(0);
+// gerçek trafik hızına göre ortam darbeleri (son 1 saat), ekran canlı görünsün
+setInterval(()=>{const fk=$('f_surface').value;if(fk&&Math.random()<.7)pulse(fk,2,false);if(!STATS)return;for(const r of STATS.by_surface)if(r.last_hour&&Math.random()<Math.min(.9,r.last_hour/120))pulse(r.surface,r.high/r.n>.2?2:0,false)},700);
+
+/* ================= grafikler ================= */
+function spark(rows){const s=$('spark');s.innerHTML='';if(!rows.length)return;const W=310,H=120,P=22,mx=Math.max(1,...rows.map(r=>r.n));
+  for(let i=0;i<=4;i++){const y=8+i*(H-P-8)/4;el('line',{x1:P,x2:W,y1:y,y2:y,stroke:'#e6e0d8'},s);
+    el('text',{x:P-4,y:y+3,'text-anchor':'end','font-size':8,fill:'#9a9188'},s).textContent=fmt(Math.round(mx*(1-i/4)))}
+  const X=i=>P+i*(W-P)/Math.max(1,rows.length-1),Y=v=>8+(1-v/mx)*(H-P-8);
+  const line=(k,col,fill)=>{const d=rows.map((r,i)=>`${i?'L':'M'}${X(i).toFixed(1)} ${Y(r[k]).toFixed(1)}`).join('');
+    if(fill)el('path',{d:d+`L${X(rows.length-1)} ${H-P}L${P} ${H-P}z`,fill:col,opacity:.12},s);el('path',{d,fill:'none',stroke:col,'stroke-width':1.8},s);
+    const l=rows.at(-1);el('circle',{cx:X(rows.length-1),cy:Y(l[k]),r:3,fill:col},s)};
+  line('n','#0b8fc6',1);line('high','#f0641e',0);
+  [0,.5,1].forEach(f=>{const i=Math.round(f*(rows.length-1));el('text',{x:X(i),y:H-6,'text-anchor':f===0?'start':f===1?'end':'middle','font-size':8,fill:'#9a9188'},s)
+    .textContent=new Date(rows[i].h).toLocaleString([], {month:'2-digit',day:'2-digit',hour:'2-digit'})})}
+function mini(rows){const s=$('mini');s.innerHTML='';const by=Object.fromEntries(rows.map(r=>[r.surface,r]));const mx=Math.max(1,...rows.map(r=>r.n));
+  SURF.forEach(([k],i)=>{const r=by[k]||{n:0,high:0},w=310/SURF.length,h=r.n?6+50*Math.log1p(r.n)/Math.log1p(mx):2;
+    el('rect',{x:i*w+3,y:56-h,width:w-6,height:h,fill:r.high>r.n*.2?'#f0641e':r.high?'#129c79':'#0b8fc6',opacity:r.n?.85:.25},s);
+    el('text',{x:i*w+w/2,y:64,'text-anchor':'middle','font-size':7,fill:'#9a9188'},s).textContent=k.slice(0,5)})}
+function timeline(rows){const s=$('tl');s.innerHTML='';if(!rows.length)return;const W=640,H=200,P=34,B=22,mx=Math.max(1,...rows.map(r=>r.n));
+  const X=i=>P+i*(W-P-6)/Math.max(1,rows.length-1),Y=v=>8+(1-v/mx)*(H-B-8);
+  for(let i=0;i<=4;i++){const y=8+i*(H-B-8)/4;el('line',{x1:P,x2:W,y1:y,y2:y,stroke:'#e6e0d8'},s);
+    el('text',{x:P-5,y:y+3,'text-anchor':'end','font-size':9,fill:'#9a9188'},s).textContent=fmt(Math.round(mx*(1-i/4)))}
+  const path=k=>rows.map((r,i)=>`${i?'L':'M'}${X(i).toFixed(1)} ${Y(r[k]).toFixed(1)}`).join('');
+  const lg=el('linearGradient',{id:'ta',x1:0,y1:0,x2:0,y2:1},s);el('stop',{offset:0,'stop-color':'#0b8fc6','stop-opacity':.45},lg);el('stop',{offset:1,'stop-color':'#0b8fc6','stop-opacity':.02},lg);
+  el('path',{d:path('n')+`L${X(rows.length-1)} ${H-B}L${P} ${H-B}z`,fill:'url(#ta)'},s);
+  el('path',{d:path('n'),fill:'none',stroke:'#0b8fc6','stroke-width':1.6},s);
+  el('path',{d:path('high'),fill:'none',stroke:'#f0641e','stroke-width':1.6},s);
+  const n=Math.min(7,rows.length);for(let j=0;j<n;j++){const i=Math.round(j*(rows.length-1)/Math.max(1,n-1));
+    el('text',{x:X(i),y:H-6,'text-anchor':j===0?'start':j===n-1?'end':'middle','font-size':9,fill:'#9a9188'},s)
+    .textContent=new Date(rows[i].h).toLocaleString([], rows.length>48?{month:'2-digit',day:'2-digit'}:{hour:'2-digit',minute:'2-digit'})}}
+
+/* ================= veri ================= */
+async function stats(){const h=$('hrs').value,s=await api('/api/stats?hours='+h+'&hide_noise='+$('f_noise').checked),t=s.totals;STATS=s;
+  $('win').textContent=h==='24'?'24H':h==='168'?'7D':'14D';
+  $('eng').textContent=t.ips?(100*t.engaged/t.ips).toFixed(1)+'%':'—';$('eng').title=`${t.engaged} of ${t.ips} IPs went beyond scanning`;
+  const act=s.by_surface.filter(r=>r.last_hour>0).length;$('active').textContent=`${act} / ${SURF.length}`;
+  $('nodes').textContent=`${SURF.length} ONLINE`;
+  const th=$('threat'),c=t.crit_1h;th.textContent=c>=10?'HIGH':c>=1?'ELEVATED':'LOW';th.className=c>=10?'bad':c>=1?'warn':'ok';
+  th.title=`${c} high-severity events in the last hour`;
+  $('mapsub').textContent=`${fmt(t.events)} events · ${fmt(t.ips)} IPs · ${fmt(t.sessions)} sessions`;
+  spark(s.hourly);mini(s.by_surface);paintMesh(s.by_surface);timeline(s.hourly);
+  const by=Object.fromEntries(s.by_surface.map(r=>[r.surface,r]));
+  $('surfs').innerHTML=SURF.map(([k,n,p])=>{const r=by[k]||{n:0,high:0,last_hour:0};
+    return `<div class="surf${$('f_surface').value===k?' sel':''}" data-f="f_surface" data-v="${k}"><span>${n} <small>${p}</small></span><small>${fmt(r.n)}</small>
+      <span class="dot ${r.last_hour?'g':''}" title="activity in last hour"></span><span class="dot ${r.high>r.n*.2&&r.high?'r':r.high?'a':''}" title="attack share"></span></div>`}).join('');
+  const mt=Math.max(1,...s.by_tag.map(r=>r.n));
+  $('tags').innerHTML=s.by_tag.filter(r=>r.tag!=='scanner_ua').slice(0,14).map(r=>`<div class="hbar s${SEV[r.tag]||1}" data-f="f_tag" data-v="${esc(r.tag)}">
+    <span title="${esc(r.tag)}">${esc(LABEL[r.tag]||r.tag)}</span><i style="width:${(4+96*r.n/mt).toFixed(1)}%"></i><em>${fmt(r.n)}</em></div>`).join('')||'<small>no data</small>';
+  const mi=Math.max(1,...s.top_ips.map(r=>r.n));
+  $('ips').innerHTML=s.top_ips.slice(0,12).map(r=>`<div data-f="f_ip" data-v="${esc(r.ip)}"><span>${ipH(r.ip,r.cc)}</span><span>${fmt(r.n)}</span>
+    <i style="width:${(100*r.n/mi).toFixed(0)}%;background:${r.max_sev>=3?'var(--rd)':r.max_sev>=2?'var(--am)':'var(--tl)'}"></i></div>`).join('')}
+/* ================= saldırı raporu ================= */
+let ATK={};
+const LV={critical:'CRITICAL',high:'HIGH',medium:'MEDIUM',low:'LOW'};
+const hm=d=>new Date(d).toLocaleString([], {month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
+const surfs=a=>a.surfaces.map(s=>NAME[s]||s).join(', ');
+function atkRow(a,i,key){const t=LABEL[a.lead]||a.lead||'Reconnaissance';
+  return `<div class="atk" data-atk="${key}:${i}"><span class="rk">${i+1}</span>
+    <span class="score lv-${a.level}">${+a.score}<small>${LV[a.level]}</small></span>
+    <div style="min-width:0"><div class="t">${esc(t)}</div>
+    <div class="l"><b>${ipH(a.ip,a.cc)}</b> → ${esc(surfs(a))}</div>
+    <div class="l">${fmt(a.n)} req · ${fmt(a.high)} med+ · ${a.tags.filter(x=>x.sev>=2).length} attack types · ${esc(hm(a.first))} – ${esc(hm(a.last))}</div></div></div>`}
+async function loadAttacks(){const r=await api('/api/attacks');ATK=r;
+  for(const k of ['daily','weekly'])$('rk_'+k).innerHTML=r[k].map((a,i)=>atkRow(a,i,k)).join('')||'<small>no attacks in window</small>';
+  const n=incList().length;$('inccount').textContent=n;$('inccount').hidden=!n;if(FTAB==='inc'&&!INC)renderIncidents()}
+function showAttack(key){const [k,i]=key.split(':'),a=ATK[k]?.[+i];if(!a)return;const b=a.breakdown,mb=Math.max(1,...Object.values(b));
+  const BD={impact:'Impact (tags)',breadth:'Surface spread',volume:'Med+ volume',persistence:'Persistence'},mt=Math.max(1,...a.tags.map(x=>x.n));
+  $('dtitle').innerHTML=`<span class="score lv-${a.level}" style="width:64px">${+a.score}<small>${LV[a.level]}</small></span> Attack report · ${ipH(a.ip,a.cc)}<button class="btn" id="dclose">Close</button>`;
+  $('dbody').innerHTML=`<div class="l" style="margin-bottom:8px;line-height:1.7">${k==='daily'?'Last 24 h':'Last 7 d'} · rank #${+i+1} · ${fmt(a.n)} requests (${fmt(a.high)} medium+) over ${+a.hours} active hours<br>
+    First seen ${esc(hm(a.first))} · last seen ${esc(hm(a.last))}<br>Surfaces: ${esc(surfs(a))}<br>Client: ${esc(a.ua||'—')}</div>
+    <h3 style="font:600 17px var(--hd);margin:10px 0 4px">Score breakdown <small class="tag">raw ${Object.values(b).reduce((x,y)=>x+y,0).toFixed(1)} → 100·(1−e^(−raw/70))</small></h3>
+    ${Object.entries(BD).map(([q,n])=>`<div class="bd"><span>${n}</span><i style="width:${(2+98*b[q]/mb).toFixed(0)}%"></i><em style="font-style:normal;text-align:right">${b[q]}</em></div>`).join('')}
+    <h3 style="font:600 17px var(--hd);margin:12px 0 4px">Techniques</h3>
+    ${a.tags.map(x=>`<div class="hbar s${x.sev}" data-f="f_tag" data-v="${esc(x.tag)}"><span title="${esc(x.tag)}">${esc(LABEL[x.tag]||x.tag)}</span><i style="width:${(4+96*x.n/mt).toFixed(1)}%"></i><em>${fmt(x.n)}</em></div>`).join('')}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px"><button class="btn" data-inc="${esc(a.ip)}">Investigate incident →</button>
+    <button class="btn" data-f="f_ip" data-v="${esc(a.ip)}">Show events in stream →</button></div>`;
+  $('detail').hidden=false;$('dclose').onclick=()=>$('detail').hidden=true}
+function card(e){const s=+e.severity||0,t=lead(e.tags),title=(s>=3?'ALERT: ':s>=2?'WARN: ':'')+(LABEL[t]||t||'Request');
+  return `<div class="card s${s}" data-id="${+e.id}" data-s="${esc((e.src_ip+' '+e.path+' '+(e.tags||[]).join(' ')+' '+e.surface).toLowerCase())}">
+  <div class="t">${esc(title)}</div><div class="l">IP: ${ipH(e.src_ip,e.cc)} → ${esc(NAME[e.surface]||e.surface)}</div>
+  <div class="l">VECTOR: ${esc(e.method)} ${esc(mtxt((e.path||'').slice(0,90)))}</div>
+  <div class="f"><span>TIME<b>${esc(new Date(e.ts).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'}))}</b></span>
+  <span>SEVERITY<b style="color:${['#8a8279','#129c79','#f0641e','#dc2f45'][s]}">${['INFO','LOW','MEDIUM','HIGH'][s]}</b></span>
+  <span>TAGS<b>${esc((e.tags||[]).filter(x=>x!=='scanner_ua').length||'—')}</b></span></div></div>`}
+// Aynı IP'nin olayları tek kartta: önem = en yüksek, başlık = en ağır etiket, sıra = son etkinlik
+let EVS=[],FRESH=null;
+const SEVC=['#8a8279','#129c79','#f0641e','#dc2f45'],SEVN=['INFO','LOW','MEDIUM','HIGH'];
+const tm=ts=>new Date(ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+function groups(){const m=new Map();
+  for(const e of EVS){let g=m.get(e.src_ip);if(!g)m.set(e.src_ip,g={ip:e.src_ip,ev:[],sev:0,tags:new Set(),surf:new Set(),paths:new Set()});
+    g.ev.push(e);g.sev=Math.max(g.sev,+e.severity||0);(e.tags||[]).forEach(t=>g.tags.add(t));g.surf.add(e.surface);g.paths.add(e.path||'')}
+  return [...m.values()]}  // EVS id'ye göre azalan → gruplar son etkinliğe göre sıralı
+function gcard(g){const e=g.ev[0],n=g.ev.length,s=g.sev,t=lead([...g.tags]),title=(s>=3?'ALERT: ':s>=2?'WARN: ':'')+(LABEL[t]||t||'Request');
+  const tg=[...g.tags].filter(x=>x!=='scanner_ua'),sf=[...g.surf].map(x=>NAME[x]||x).join(', ');
+  const key=n>1?`data-grp="${esc(g.ip)}"`:`data-id="${+e.id}"`;
+  return `<div class="card s${s}${FRESH===g.ip?' fresh':''}" ${key} data-s="${esc((g.ip+' '+(e.cc||'')+' '+(e.country||'')+' '+[...g.paths].join(' ')+' '+[...g.tags].join(' ')+' '+[...g.surf].join(' ')).toLowerCase())}">
+  <div class="t"><span>${esc(title)}</span>${n>1?`<span class="n"><b>×${n}</b> events</span>`:''}</div>
+  <div class="l">IP: ${ipH(g.ip,e.cc)} → ${esc(sf)}</div>
+  <div class="l">VECTOR: ${esc(e.method)} ${esc(mtxt((e.path||'').slice(0,90)))}${g.paths.size>1?` <small>(+${g.paths.size-1} paths)</small>`:''}</div>
+  <div class="f"><span>${n>1?'LAST':'TIME'}<b>${esc(tm(e.ts))}</b></span>
+  <span>SEVERITY<b style="color:${SEVC[s]}">${SEVN[s]}</b></span>
+  <span>TAGS<b>${esc(tg.length||'—')}</b></span></div></div>`}
+function renderFeed(){const gs=groups();$('feed').innerHTML=gs.map(gcard).join('')||'<small>no matching events</small>';FRESH=null;search()}
+function showGroup(ip){const g=groups().find(x=>x.ip===ip);if(!g)return;const l=g.ev[g.ev.length-1];
+  $('dtitle').innerHTML=`${ipH(ip,g.ev[0]?.cc)} <small class="tag">${g.ev.length} events</small><button class="btn" id="dclose">Close</button>`;
+  $('dbody').innerHTML=`<div class="gsum">Highest severity <b style="color:${SEVC[g.sev]}">${SEVN[g.sev]}</b> · ${esc(tm(l.ts))} → ${esc(tm(g.ev[0].ts))}<br>
+    Surfaces: <b>${esc([...g.surf].map(x=>NAME[x]||x).join(', '))}</b> · ${g.paths.size} distinct paths<br>
+    ${[...g.tags].filter(x=>x!=='scanner_ua').map(t=>`<span class="tag" data-f="f_tag" data-v="${esc(t)}" style="cursor:pointer">${esc(LABEL[t]||t)}</span>`).join('')}</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><button class="btn" data-inc="${esc(ip)}">Investigate incident →</button>
+    <button class="btn" data-f="f_ip" data-v="${esc(ip)}">Filter stream to this IP</button></div>
+    <div class="glist">${g.ev.map(card).join('')}</div>`;
+  $('detail').hidden=false;$('dclose').onclick=()=>$('detail').hidden=true}
+function F(){return{surface:$('f_surface').value,tag:$('f_tag').value.trim(),ip:$('f_ip').value.trim(),min_sev:+$('f_sev').value,hide:$('f_noise').checked}}
+function match(e){const f=F();return(!f.surface||e.surface===f.surface)&&(!f.tag||(e.tags||[]).includes(f.tag))&&(!f.ip||e.src_ip===f.ip)&&e.severity>=f.min_sev&&!(f.hide&&e.noise)}
+function search(){if(FTAB!=='stream')return;const q=$('q').value.trim().toLowerCase();let n=0;for(const c of $('feed').children){if(!c.dataset.s)continue;const v=!q||c.dataset.s.includes(q);c.hidden=!v;n+=v}
+  $('fcount').textContent=`${n} IPs · ${EVS.length} events`}
+async function loadFeed(){const f=F(),q=new URLSearchParams({limit:500,min_sev:f.min_sev,hide_noise:f.hide});
+  if(f.surface)q.set('surface',f.surface);if(f.tag)q.set('tag',f.tag);if(f.ip)q.set('ip',f.ip);
+  EVS=await api('/api/events?'+q);renderFeed()}
+/* ================= olaylar (incident) ================= */
+// Bir incident = bir saldırgan IP'si; rapordaki puanla (varsa) birlikte tüm olayları kronolojik zincir olarak incelenir
+let FTAB='stream',INC=null;
+const ATKS=ip=>[...(ATK?.daily||[]),...(ATK?.weekly||[])].find(a=>a.ip===ip);
+function incList(){const m=new Map();for(const a of [...(ATK?.daily||[]),...(ATK?.weekly||[])])if(!m.has(a.ip))m.set(a.ip,a);
+  return [...m.values()].sort((x,y)=>y.score-x.score)}
+function setFtab(t){FTAB=t;for(const s of document.querySelectorAll('[data-ftab]'))s.classList.toggle('on',s.dataset.ftab===t);
+  $('streamv').hidden=t!=='stream';$('incv').hidden=t!=='inc';$('ftitle').textContent=t==='inc'?'Incident Investigation':'Live Intrusion Stream';
+  if(t==='stream')search();else{$('fcount').textContent=INC?mip(INC):`${incList().length} incidents`;if(!INC)renderIncidents()}}
+function goPanel(){const p=$('feedp');p.scrollIntoView({behavior:'smooth',block:'start'});p.classList.remove('flash');void p.offsetWidth;p.classList.add('flash')}
+function renderIncidents(){const l=incList();
+  $('incv').innerHTML=`<div class="l" style="font-size:11.5px;color:var(--mut)">Top-scored attackers of the last 24 h and 7 d. Pick one to investigate.</div>`+
+    (l.map((a,i)=>atkRow(a,i,'inc').replace(/data-atk="[^"]*"/,`data-inc="${esc(a.ip)}"`)).join('')||'<small>no incidents</small>')}
+async function openIncident(ip){$('detail').hidden=true;INC=ip;setFtab('inc');goPanel();
+  $('incv').innerHTML='<small>loading incident…</small>';
+  const q=new URLSearchParams({ip,limit:500,min_sev:0,hide_noise:true});let ev=[];
+  try{ev=await api('/api/events?'+q)}catch(e){$('incv').innerHTML='<small>failed to load events</small>';return}
+  if(INC!==ip)return;ev.reverse();  // eskiden yeniye: saldırı zinciri
+  const a=ATKS(ip),sev=Math.max(0,...ev.map(e=>+e.severity||0)),tg={},sf=new Set(),wal=new Set();
+  for(const e of ev){sf.add(e.surface);for(const t of e.tags||[])tg[t]=(tg[t]||0)+1;const w=e.extra?.wallet_to;if(w)wal.add(String(w))}
+  const tl=Object.entries(tg).filter(([t])=>t!=='scanner_ua').map(([t,n])=>({t,n,s:SEV[t]??1})).sort((x,y)=>y.s-x.s||y.n-x.n),mt=Math.max(1,...tl.map(x=>x.n));
+  // ardışık aynı adımları (yüzey+yol+etiket) tek satıra indir
+  const steps=[];for(const e of ev){const k=e.surface+'|'+e.method+'|'+e.path+'|'+(e.tags||[]).join(',');const p=steps[steps.length-1];
+    if(p&&p.k===k){p.n++;p.last=e}else steps.push({k,n:1,e,last:e})}
+  const first=ev[0],last=ev[ev.length-1],badge=a?`<span class="score lv-${a.level}">${+a.score}<small>${LV[a.level]}</small></span>`:`<span class="score lv-low">—<small>${SEVN[sev]}</small></span>`;
+  $('incv').innerHTML=`<button class="btn" data-ftab="inc" data-back="1" style="align-self:flex-start">← All incidents</button>
+    <div class="ihead">${badge}<div style="min-width:0"><div class="ip">${(a?.cc||first?.cc)&&(a?.cc||first.cc)!=='??'?flagImg(a?.cc||first.cc):''}${esc(mip(ip))}</div>
+      <div class="l">${esc(a?.country||first?.country||'')}${a?.ua?' · '+esc(a.ua):''}</div></div></div>
+    <div class="ifacts"><span>FIRST SEEN<b>${first?esc(hm(first.ts)):'—'}</b></span><span>LAST SEEN<b>${last?esc(hm(last.ts)):'—'}</b></span>
+      <span>EVENTS<b>${fmt(ev.length)}${ev.length>=500?'+':''}</b></span><span>MEDIUM+<b style="color:${SEVC[sev]}">${fmt(ev.filter(e=>e.severity>=2).length)}</b></span></div>
+    <div class="l" style="font-size:11.5px">Surfaces: <b>${esc([...sf].map(x=>NAME[x]||x).join(', ')||'—')}</b></div>
+    ${wal.size?`<div class="isec">ATTACKER WALLETS</div><div class="wallets">${[...wal].map(w=>`<code>${esc(w)}</code>`).join('')}</div>`:''}
+    <div class="isec">TECHNIQUES</div>
+    ${tl.map(x=>`<div class="hbar s${x.s}" data-f="f_tag" data-v="${esc(x.t)}"><span title="${esc(x.t)}">${esc(LABEL[x.t]||x.t)}</span><i style="width:${(4+96*x.n/mt).toFixed(1)}%"></i><em>${fmt(x.n)}</em></div>`).join('')||'<small>—</small>'}
+    <div class="isec">ATTACK CHAIN <small style="font:400 11px var(--mono);color:var(--mut)">oldest → newest · click a step for details</small></div>
+    <div class="chain">${steps.map(({n,e,last})=>{const s=+e.severity||0,t=lead(e.tags);
+      return `<div class="step s${s}" data-id="${+last.id}"><div class="h"><b>${esc(hm(e.ts))}</b>${esc(NAME[e.surface]||e.surface)}${n>1?`<em>×${n}</em>`:''}</div>
+      <div class="k">${esc(LABEL[t]||t||'Request')}</div><div class="v">${esc(e.method)} ${esc(mtxt((e.path||'').slice(0,80)))}</div></div>`}).join('')||'<small>no events</small>'}</div>
+    <button class="btn" data-f="f_ip" data-v="${esc(ip)}">Show these events in live stream →</button>`;
+  $('fcount').textContent=mip(ip);$('incv').scrollTop=0}
+
+/* ================= ülkeler ================= */
+let GEOV=false,CTRY=null;
+const flagImg=cc=>/^[A-Z]{2}$/.test(cc)?`<img class="flag" src="/flags/${cc.toLowerCase()}.svg" alt="${cc}" title="${cc}" onerror="this.outerHTML='<span class=flag0>${cc}</span>'">`:'<span class="flag0">??</span>';
+async function loadGeo(){CTRY=await api('/api/countries?limit=15&hours='+$('hrs').value);renderGeo()}
+function renderGeo(){const r=CTRY,g=$('geo');if(!r)return;
+  if(!r.geo){g.innerHTML='<small>GeoIP database not available — rebuild admin-api.</small>';return}
+  const mx=Math.max(1,...r.countries.map(c=>c.n));
+  g.innerHTML=(r.countries.map((c,i)=>`<div class="ctry s${c.max_sev}" data-cc="${esc(c.cc)}"><span class="rk">${i+1}</span>${flagImg(c.cc)}
+    <span class="nm">${esc(c.name)}<small>${esc(c.cc)}</small></span>
+    <span class="bar" title="events / medium+"><i style="width:${c.n/mx*100}%"></i><b style="width:${c.high/mx*100}%"></b></span>
+    <span class="nums"><span>IPs<b>${c.ips}</b></span><span>EVENTS<b>${fmt(c.n)}</b></span><span class="h">MEDIUM+<b>${fmt(c.high)}</b></span></span></div>`).join('')||'<small>no attacks in window</small>')
+    +`<div class="geofoot">${r.ips} source IPs · own IPs &amp; noise excluded · <a href="https://db-ip.com" target="_blank" rel="noopener">IP Geolocation by DB-IP</a></div>`}
+function showCountry(cc){const c=CTRY?.countries.find(x=>x.cc===cc);if(!c)return;
+  $('dtitle').innerHTML=`${flagImg(c.cc)} ${esc(c.name)} <small class="tag">${c.ips} IPs</small><button class="btn" id="dclose">Close</button>`;
+  $('dbody').innerHTML=`<div class="gsum">${fmt(c.n)} events · <b style="color:${SEVC[c.max_sev]}">${fmt(c.high)}</b> medium+ · <b>${c.attackers}</b> IPs went beyond scanning<br>Top sources — click to filter the stream:</div>
+    <div class="glist">${c.top.map(x=>`<div class="card s${x.max_sev}" data-f="f_ip" data-v="${esc(x.ip)}"><div class="t"><span>${ipH(x.ip,c.cc)}</span><span class="n"><b>${fmt(x.n)}</b> events</span></div>
+    <div class="f"><span>MEDIUM+<b>${fmt(x.high)}</b></span><span>SEVERITY<b style="color:${SEVC[x.max_sev]}">${SEVN[x.max_sev]}</b></span><span>ACTION<b>filter</b></span></div></div>`).join('')}</div>`;
+  $('detail').hidden=false;$('dclose').onclick=()=>$('detail').hidden=true}
+function setView(v){GEOV=v==='geo';$('map').classList.toggle('geo',GEOV);$('geo').hidden=!GEOV;
+  for(const t of document.querySelectorAll('.tabs [data-view]'))t.classList.toggle('on',t.dataset.view===v);
+  try{localStorage.setItem('hp_view',v)}catch(e){}if(GEOV&&T)loadGeo().catch(()=>{})}
+function refresh(){focusSurface();if(GEOV)loadGeo().catch(()=>{});stats().catch(()=>{});loadFeed().catch(()=>{})}
+// sol listedeki/haritadaki yüzey seçilince haritada o düğüm ve merkeze hattı öne çıkar
+function focusSurface(){const k=$('f_surface').value,g=$('hlg');if(!g)return;
+  $('mesh').classList.toggle('focus',!!k);g.innerHTML='';
+  for(const [s] of SURF){$('n_'+s)?.classList.toggle('hl',s===k);EDGES[s]?.classList.toggle('hl',s===k)}
+  if(!k)return;const p=POS[k];
+  for(const d of [0,.8])el('circle',{cx:p.x,cy:p.y,r:30,class:'hlring',style:`animation-delay:${d}s`},g);
+  for(let i=0;i<3;i++)setTimeout(()=>pulse(k,2,false),i*350)}
+// Etiket/IP/yüzey tıklaması: önem filtresi sıfırlanır (≥ medium varsayılanı düşük önemli etiketlerin olaylarını gizliyordu)
+function setF(id,v){if(id==='f_surface'&&$(id).value===v)v='';$(id).value=v;$('f_sev').value='0';$('q').value='';refresh()}
+// Gövde JSON ise açılır; içindeki çok satırlı metinler (yüklenen kod, uzun prompt) ayrı blokta gerçek satırlarıyla gösterilir
+function unpackBody(b){if(typeof b!=='string')return{body:b,blocks:[]};let o;try{o=JSON.parse(b)}catch(e){return{body:b,blocks:[]}}
+  if(!o||typeof o!=='object')return{body:b,blocks:[]};const blocks=[];
+  const walk=(x,path)=>{for(const k of Object.keys(x)){const val=x[k],q=path?`${path}.${k}`:k;
+    if(typeof val==='string'&&val.includes('\n')&&val.length>60){blocks.push({path:q,text:val});x[k]=`‹${val.split('\n').length} lines · shown below›`}
+    else if(val&&typeof val==='object')walk(val,q)}};
+  walk(o,'');return{body:o,blocks}}
+async function show(id){const e=await api('/api/events/'+id);const {body,blocks}=unpackBody(e.body);
+  const v={...e,src_ip:mip(e.src_ip),body};if(share())delete v.headers;
+  let h=`<pre>${esc(mtxt(JSON.stringify(v,null,2)))}</pre>`+blocks.map(b=>`<h3 style="font:600 15px var(--hd);margin:12px 0 4px;letter-spacing:.04em">BODY · ${esc(b.path)} <small class="tag">${b.text.split('\n').length} lines</small></h3><pre class="code">${esc(mtxt(b.text))}</pre>`).join('');$('dtitle').innerHTML=`${esc(LABEL[lead(e.tags)]||'Event')} · ${ipH(e.src_ip,e.cc)} <small class="tag">#${+e.id}</small><button class="btn" id="dclose">Close</button>`;
+  if(e.session_id){const s=await api('/api/sessions/'+encodeURIComponent(e.session_id));
+    if(s.messages.length)h+=`<h3 style="font:600 18px var(--hd);margin:14px 0 6px;display:flex;gap:10px">Conversation <button class="btn" id="markbtn" style="margin-left:auto">Mark for training</button></h3>`+
+      s.messages.map(m=>`<div><b>${esc(m.role)}${m.tool_name?' · '+esc(m.tool_name):''}</b> ${(m.tags||[]).map(t=>`<span class="tag">${esc(t)}</span>`).join('')}<pre>${esc(mtxt(m.content))}</pre></div>`).join('')}
+  $('dbody').innerHTML=h;$('detail').hidden=false;$('dclose').onclick=()=>$('detail').hidden=true;
+  const b=$('markbtn');if(b)b.onclick=async()=>{await fetch('/api/sessions/'+encodeURIComponent(e.session_id)+'/review',{method:'POST',headers:{'X-Admin-Token':T}});b.textContent='Marked ✓'}}
+// Veri asla inline JS'e gömülmez (sid, etiket, IP saldırgan kontrolünde olabilir): data-* + tek dinleyici
+document.addEventListener('click',ev=>{const inc=ev.target.closest('[data-inc]');if(inc)return openIncident(inc.dataset.inc);
+  const ft=ev.target.closest('[data-ftab]');if(ft){if(ft.dataset.ftab==='inc'&&(ft.dataset.back||FTAB==='inc'))INC=null;return setFtab(ft.dataset.ftab)}
+  const f=ev.target.closest('[data-f]');if(f){$('detail').hidden=true;if(f.dataset.f==='f_ip'){setFtab('stream');goPanel()}return setF(f.dataset.f,f.dataset.v)}
+  const vw=ev.target.closest('[data-view]');if(vw)return setView(vw.dataset.view);
+  const cc=ev.target.closest('[data-cc]');if(cc)return showCountry(cc.dataset.cc);
+  const k=ev.target.closest('[data-atk]');if(k)return showAttack(k.dataset.atk);
+  const gr=ev.target.closest('[data-grp]');if(gr)return showGroup(gr.dataset.grp);
+  const c=ev.target.closest('[data-id]');if(c)return show(+c.dataset.id);if(ev.target===$('detail'))$('detail').hidden=true});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')$('detail').hidden=true});
+$('q').oninput=search;$('apply').onclick=refresh;$('hrs').onchange=refresh;$('f_noise').onchange=refresh;$('f_surface').onchange=refresh;
+$('clear').onclick=()=>{['f_surface','f_tag','f_ip','q'].forEach(i=>$(i).value='');$('f_sev').value='2';refresh()};
+$('share').onchange=()=>{try{localStorage.setItem('hp_share',share()?'1':'0')}catch(e){}refresh();loadAttacks().catch(()=>{})};
+$('export').onclick=async()=>{const r=await fetch('/api/export/training.jsonl',{headers:{'X-Admin-Token':T}});if(!r.ok)return;
+  const a=document.createElement('a');a.href=URL.createObjectURL(await r.blob());a.download='training.jsonl';a.click()};
+function live(){const ws=new WebSocket((location.protocol==='https:'?'wss://':'ws://')+location.host+'/ws/live?token='+encodeURIComponent(T));WS=ws;
+  ws.onopen=()=>{$('sys').textContent='ACTIVE [TRAPPING]';$('sys').className='ok'};
+  ws.onclose=()=>{$('sys').textContent='STREAM OFFLINE';$('sys').className='warn';setTimeout(()=>WS===ws&&live(),5000)};
+  ws.onmessage=m=>{const e=JSON.parse(m.data);if(!e.noise)pulse(e.surface,+e.severity,(e.tags||[]).some(t=>REUSE.has(t)));if(!match(e))return;
+    EVS.unshift(e);if(EVS.length>500)EVS.length=500;FRESH=e.src_ip;renderFeed()}}
+async function start(){try{await stats();await loadFeed()}catch(e){$('loginm').hidden=false;$('lerr').textContent=e===401?'Invalid token':'Error: '+e;return}
+  $('loginm').hidden=true;clearInterval(timer);let tk=0;loadAttacks().catch(()=>{});
+  timer=setInterval(()=>{stats().catch(()=>{});if(GEOV)loadGeo().catch(()=>{});if(++tk%4===0)loadAttacks().catch(()=>{})},30000);
+  try{if(localStorage.getItem('hp_view')==='geo')setView('geo')}catch(e){}live()}
+$('loginf').onsubmit=ev=>{ev.preventDefault();T=$('tok').value;try{localStorage.setItem('hp_tok',T)}catch(e){}start()};
+buildMesh();if(T)start();else $('loginm').hidden=false;
+</script>
+</body>
+</html>

@@ -1,0 +1,105 @@
+name: sepetly-hp
+
+services:
+  caddy:
+    image: caddy:2.8
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "11434:11434"        # sahte Ollama
+      # sahte LLM sunucuları (llm_servers.py): vLLM, LM Studio, LiteLLM, llama.cpp, Open WebUI, Gradio
+      - "8000:8000"
+      - "1234:1234"
+      - "4000:4000"
+      - "8080:8080"
+      - "3000:3000"
+      - "7860:7860"
+      - "8332:8332"          # sahte bitcoind RPC (routers/exchange.py)
+    environment:
+      BAIT_DOMAIN: ${BAIT_DOMAIN:-localhost}
+      ACME_EMAIL: ${ACME_EMAIL:-admin@example.com}
+    volumes:
+      - ./caddy:/etc/caddy:ro   # Caddyfile + certs/ (tek dosya mount'u rsync sonrası eski inode'da kalıyordu)
+      - caddy_data:/data
+    networks: [edge]
+
+  bait-api:
+    build: ./services/bait-api
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://hp:${DB_PASSWORD:-hp}@db:5432/hp
+      LLM_URL: http://llm:8080
+    volumes:
+      - fakedb:/data
+    depends_on:
+      db: {condition: service_healthy}
+    networks: [edge, core]
+
+  # P3: eğitilmiş GGUF modeli ./models altına koy, `--profile llm` ile başlat
+  llm:
+    image: ghcr.io/ggml-org/llama.cpp:server
+    profiles: ["llm"]
+    restart: unless-stopped
+    # --cache-ram 0: llama.cpp'nin RAM'deki prompt önbelleği (varsayılan 8 GB tavan) 2 GB droplet'te 12 günde
+    # 3,2 GB'a (RAM + swap) şişip üretimi 2,3'ten 0,5 tok/sn'ye düşürdü; --parallel 1'de faydası da yok
+    command: >
+      -m /models/${MODEL_FILE:-sepetly-qwen3-1.7b-q4_k_m.gguf}
+      --host 0.0.0.0 --port 8080 -c 2048 --jinja -t ${LLM_THREADS:-4} --parallel 1 --cache-ram 0
+    volumes:
+      - ./models:/models:ro
+    networks: [core]
+
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: hp
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-hp}
+      POSTGRES_DB: hp
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hp -d hp"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    networks: [core]
+
+  # Gözlem paneli: SADECE Tailscale/WireGuard IP'sine bind et (ADMIN_BIND)
+  admin-api:
+    build: ./services/admin-api
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://hp:${DB_PASSWORD:-hp}@db:5432/hp
+    ports:
+      - "${ADMIN_BIND:-127.0.0.1}:8081:8081"
+    depends_on:
+      db: {condition: service_healthy}
+    networks: [admin, core]
+
+  # Opsiyonel: SSH honeypot (yüksek hacimli bot trafiği). Gerçek SSH'ı önce başka porta taşı!
+  cowrie:
+    image: cowrie/cowrie:latest
+    profiles: ["ssh"]
+    restart: unless-stopped
+    ports:
+      - "22:2222"
+    volumes:
+      - cowrie_logs:/cowrie/cowrie-git/var/log/cowrie
+    networks: [edge]
+
+networks:
+  edge: {}
+  admin: {}
+  core:
+    internal: true   # db + llm dış dünyaya çıkamaz
+
+volumes:
+  caddy_data: {}
+  pgdata: {}
+  fakedb: {}
+  cowrie_logs: {}
